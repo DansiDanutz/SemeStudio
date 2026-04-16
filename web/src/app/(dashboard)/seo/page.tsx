@@ -5,68 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Loader2, Copy, Check, TrendingUp } from "lucide-react";
+import { Sparkles, Loader2, Copy, Check, TrendingUp, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-
-interface SeoResult {
-  titles: string[];
-  description: string;
-  tags: string[];
-  chapters: string[];
-  ctrScore: number;
-}
-
-const MOCK_SEO: SeoResult = {
-  titles: [
-    "Bitcoin ETF Explained: Everything You Need to Know in 2026",
-    "I Bought a Bitcoin ETF: Here's What Happened (Honest Review)",
-    "Bitcoin ETF vs Real Bitcoin: Which Should YOU Buy?",
-    "Bitcoin ETFs Just Hit $100B — Why This Changes Everything",
-    "The Complete Bitcoin ETF Guide for Beginners (2026)",
-  ],
-  description: `In this video, I break down everything you need to know about Bitcoin ETFs in 2026. From how they work to whether you should buy one — this is the only guide you need.
-
-00:00 - Introduction
-00:30 - What is a Bitcoin ETF?
-01:30 - How Bitcoin ETFs Work
-03:00 - Why This Changes Everything
-05:00 - The Risks You Need to Know
-07:00 - Should YOU Buy a Bitcoin ETF?
-09:00 - Final Thoughts
-
-#Bitcoin #BitcoinETF #Crypto #Investing #BTC #CryptoEducation #Finance #ETF`,
-  tags: [
-    "bitcoin etf", "bitcoin etf explained", "bitcoin etf 2026", "btc etf",
-    "blackrock bitcoin etf", "fidelity bitcoin etf", "ibit", "fbtc",
-    "bitcoin investing", "crypto etf", "how to buy bitcoin etf",
-    "bitcoin etf vs bitcoin", "spot bitcoin etf", "bitcoin for beginners",
-    "crypto education", "bitcoin price", "should i buy bitcoin etf",
-    "bitcoin etf risks", "best bitcoin etf", "bitcoin etf review",
-  ],
-  chapters: [
-    "00:00 - Introduction",
-    "00:30 - What is a Bitcoin ETF?",
-    "01:30 - How Bitcoin ETFs Work",
-    "03:00 - Why This Changes Everything",
-    "05:00 - The Risks You Need to Know",
-    "07:00 - Should YOU Buy a Bitcoin ETF?",
-    "09:00 - Final Thoughts",
-  ],
-  ctrScore: 87,
-};
+import { useSeoOptimize } from "@/hooks/useSeoOptimize";
 
 export default function SeoPage() {
   const [topic, setTopic] = useState("");
-  const [result, setResult] = useState<SeoResult | null>(null);
-  const [loading, setLoading] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  const handleOptimize = async () => {
+  const mutation = useSeoOptimize();
+  const result = mutation.data ?? null;
+
+  const handleOptimize = () => {
     if (!topic.trim()) return;
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 2000));
-    setResult(MOCK_SEO);
-    setLoading(false);
+    mutation.mutate({ topic });
   };
 
   const copyToClipboard = async (text: string, field: string) => {
@@ -95,7 +47,7 @@ export default function SeoPage() {
       </div>
 
       <Card className="border-[#222] bg-[#111]">
-        <CardContent className="p-6">
+        <CardContent className="p-6 space-y-3">
           <div className="flex gap-3">
             <Input
               placeholder="Enter your video topic or paste a title..."
@@ -106,10 +58,10 @@ export default function SeoPage() {
             />
             <Button
               onClick={handleOptimize}
-              disabled={loading || !topic.trim()}
+              disabled={mutation.isPending || !topic.trim()}
               className="bg-[#FF0000] hover:bg-[#CC0000] text-white font-semibold px-6 h-11 shrink-0"
             >
-              {loading ? (
+              {mutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
@@ -119,6 +71,12 @@ export default function SeoPage() {
               )}
             </Button>
           </div>
+          {mutation.isError && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {mutation.error instanceof Error ? mutation.error.message : "Optimization failed"}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -181,21 +139,21 @@ export default function SeoPage() {
             </Card>
 
             {/* Chapters */}
-            <Card className="border-[#222] bg-[#111]">
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="text-sm font-semibold text-[#FAFAFA]">Chapters</CardTitle>
-                <CopyBtn text={result.chapters.join("\n")} field="chapters" />
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-1.5">
-                  {result.chapters.map((ch) => (
-                    <div key={ch} className="text-sm text-[#A1A1AA] font-mono">
-                      {ch}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            {result.chapters.length > 0 && (
+              <Card className="border-[#222] bg-[#111]">
+                <CardHeader className="flex flex-row items-center justify-between pb-3">
+                  <CardTitle className="text-sm font-semibold text-[#FAFAFA]">Chapters</CardTitle>
+                  <CopyBtn text={result.chapters.join("\n")} field="chapters" />
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-1.5">
+                    {result.chapters.map((ch) => (
+                      <div key={ch} className="text-sm text-[#A1A1AA] font-mono">{ch}</div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* CTR Score */}
@@ -212,26 +170,27 @@ export default function SeoPage() {
                 <p className="text-xs text-[#52525B]">out of 100</p>
                 <div className="mt-6 space-y-2 text-left">
                   {[
-                    { label: "Title Strength", value: 92, color: "#22C55E" },
-                    { label: "Tag Relevance", value: 88, color: "#22C55E" },
-                    { label: "Description Quality", value: 85, color: "#22C55E" },
-                    { label: "Keyword Coverage", value: 79, color: "#F59E0B" },
-                  ].map((metric) => (
-                    <div key={metric.label}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-[#52525B]">{metric.label}</span>
-                        <span style={{ color: metric.color }} className="font-medium">
-                          {metric.value}%
-                        </span>
+                    { label: "Title Strength", value: Math.min(100, result.ctrScore + 5) },
+                    { label: "Tag Relevance", value: Math.min(100, result.ctrScore + 1) },
+                    { label: "Description Quality", value: Math.min(100, result.ctrScore - 2) },
+                    { label: "Keyword Coverage", value: Math.min(100, result.ctrScore - 8) },
+                  ].map((metric) => {
+                    const color = metric.value >= 80 ? "#22C55E" : metric.value >= 60 ? "#F59E0B" : "#EF4444";
+                    return (
+                      <div key={metric.label}>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-[#52525B]">{metric.label}</span>
+                          <span style={{ color }} className="font-medium">{metric.value}%</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-[#1a1a1a]">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{ width: `${metric.value}%`, backgroundColor: color }}
+                          />
+                        </div>
                       </div>
-                      <div className="h-1.5 rounded-full bg-[#1a1a1a]">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{ width: `${metric.value}%`, backgroundColor: metric.color }}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
@@ -239,7 +198,7 @@ export default function SeoPage() {
         </div>
       )}
 
-      {!result && !loading && (
+      {!result && !mutation.isPending && (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="h-16 w-16 rounded-2xl bg-[#111] border border-[#222] flex items-center justify-center mb-4">
             <TrendingUp className="h-7 w-7 text-[#52525B]" />

@@ -1,28 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, TrendingUp, TrendingDown, Minus, Loader2, Sparkles } from "lucide-react";
-
-interface TopicResult {
-  title: string;
-  searchVolume: string;
-  competition: "low" | "medium" | "high";
-  trend: "rising" | "stable" | "declining";
-  score: number;
-}
-
-const MOCK_RESULTS: TopicResult[] = [
-  { title: "Bitcoin ETF Performance 2026", searchVolume: "45K/mo", competition: "medium", trend: "rising", score: 92 },
-  { title: "Best Crypto Hardware Wallets", searchVolume: "32K/mo", competition: "high", trend: "stable", score: 78 },
-  { title: "Solana DeFi Tutorial Beginner", searchVolume: "28K/mo", competition: "low", trend: "rising", score: 95 },
-  { title: "Ethereum Staking Rewards Guide", searchVolume: "21K/mo", competition: "medium", trend: "stable", score: 74 },
-  { title: "Crypto Tax Guide 2026", searchVolume: "18K/mo", competition: "low", trend: "rising", score: 88 },
-  { title: "NFT Market Recovery Analysis", searchVolume: "12K/mo", competition: "low", trend: "declining", score: 56 },
-];
+import { Search, TrendingUp, TrendingDown, Minus, Loader2, Sparkles, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { useResearch } from "@/hooks/useResearch";
 
 const TREND_CONFIG = {
   rising: { icon: TrendingUp, color: "#22C55E", label: "Rising" },
@@ -30,23 +14,19 @@ const TREND_CONFIG = {
   declining: { icon: TrendingDown, color: "#EF4444", label: "Declining" },
 };
 
-const COMP_COLORS = {
-  low: "bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/20",
-  medium: "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20",
-  high: "bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/20",
-};
+const scoreColor = (score: number) =>
+  score >= 80 ? "text-[#22C55E]" : score >= 60 ? "text-[#F59E0B]" : "text-[#EF4444]";
 
 export default function ResearchPage() {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<TopicResult[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
-  const handleSearch = async () => {
+  const mutation = useResearch();
+  const topics = mutation.data?.topics ?? [];
+
+  const handleSearch = () => {
     if (!query.trim()) return;
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setResults(MOCK_RESULTS);
-    setLoading(false);
+    mutation.mutate({ keyword: query });
   };
 
   return (
@@ -57,7 +37,7 @@ export default function ResearchPage() {
       </div>
 
       <Card className="border-[#222] bg-[#111]">
-        <CardContent className="p-6">
+        <CardContent className="p-6 space-y-3">
           <div className="flex gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#52525B]" />
@@ -71,10 +51,10 @@ export default function ResearchPage() {
             </div>
             <Button
               onClick={handleSearch}
-              disabled={loading || !query.trim()}
+              disabled={mutation.isPending || !query.trim()}
               className="bg-[#FF0000] hover:bg-[#CC0000] text-white font-semibold px-6 h-11"
             >
-              {loading ? (
+              {mutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
@@ -84,49 +64,96 @@ export default function ResearchPage() {
               )}
             </Button>
           </div>
+          {mutation.isError && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {mutation.error instanceof Error ? mutation.error.message : "Research failed"}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {results.length > 0 && (
+      {topics.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-[#A1A1AA] uppercase tracking-wider">
-            {results.length} topics found for &ldquo;{query}&rdquo;
+            {topics.length} topics found for &ldquo;{query}&rdquo;
           </h2>
-          {results.map((topic) => {
-            const trend = TREND_CONFIG[topic.trend];
+          {topics.map((topic, idx) => {
+            const trend = TREND_CONFIG[topic.trendDirection];
             const TrendIcon = trend.icon;
+            const isExpanded = expandedIdx === idx;
+
             return (
-              <Card key={topic.title} className="border-[#222] bg-[#111] hover:border-[#2a2a2a] transition-colors">
-                <CardContent className="p-5 flex items-center gap-6">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[#FAFAFA] mb-1">{topic.title}</p>
-                    <div className="flex items-center gap-4">
-                      <span className="text-xs text-[#52525B]">{topic.searchVolume}</span>
-                      <Badge variant="outline" className={`text-[10px] ${COMP_COLORS[topic.competition]}`}>
-                        {topic.competition}
-                      </Badge>
-                      <div className="flex items-center gap-1">
-                        <TrendIcon className="h-3 w-3" style={{ color: trend.color }} />
-                        <span className="text-xs" style={{ color: trend.color }}>{trend.label}</span>
+              <Card key={idx} className="border-[#222] bg-[#111] hover:border-[#2a2a2a] transition-colors">
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-6">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-[#FAFAFA] mb-1">{topic.keyword}</p>
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <span className="text-xs text-[#52525B]">Search score: {topic.searchVolumeScore}/100</span>
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] ${
+                            topic.competitionScore <= 40
+                              ? "bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/20"
+                              : topic.competitionScore <= 70
+                              ? "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20"
+                              : "bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/20"
+                          }`}
+                        >
+                          {topic.competitionScore <= 40 ? "low" : topic.competitionScore <= 70 ? "medium" : "high"} competition
+                        </Badge>
+                        <div className="flex items-center gap-1">
+                          <TrendIcon className="h-3 w-3" style={{ color: trend.color }} />
+                          <span className="text-xs" style={{ color: trend.color }}>{trend.label}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="text-center">
-                    <div
-                      className={`text-2xl font-black tracking-tight ${
-                        topic.score >= 80 ? "text-[#22C55E]" : topic.score >= 60 ? "text-[#F59E0B]" : "text-[#EF4444]"
-                      }`}
-                    >
-                      {topic.score}
+                    <div className="text-center">
+                      <div className={`text-2xl font-black tracking-tight ${scoreColor(topic.opportunityScore)}`}>
+                        {topic.opportunityScore}
+                      </div>
+                      <div className="text-[10px] text-[#52525B] uppercase tracking-wider">Score</div>
                     </div>
-                    <div className="text-[10px] text-[#52525B] uppercase tracking-wider">Score</div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-[#52525B] hover:text-[#FAFAFA] p-1.5"
+                      onClick={() => setExpandedIdx(isExpanded ? null : idx)}
+                    >
+                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </Button>
                   </div>
-                  <Button
-                    size="sm"
-                    className="bg-[#161616] hover:bg-[#1a1a1a] text-[#FAFAFA] border border-[#2a2a2a] text-xs"
-                  >
-                    Write Script
-                  </Button>
+
+                  {isExpanded && (
+                    <div className="mt-4 pt-4 border-t border-[#1a1a1a] space-y-4">
+                      {topic.relatedKeywords.length > 0 && (
+                        <div>
+                          <p className="text-xs text-[#52525B] uppercase tracking-wider mb-2">Related Keywords</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {topic.relatedKeywords.map((kw) => (
+                              <Badge key={kw} variant="outline" className="border-[#222] bg-[#0a0a0a] text-[#A1A1AA] text-xs">
+                                {kw}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {topic.videoIdeas.length > 0 && (
+                        <div>
+                          <p className="text-xs text-[#52525B] uppercase tracking-wider mb-2">Video Ideas</p>
+                          <div className="space-y-1.5">
+                            {topic.videoIdeas.map((idea, i) => (
+                              <div key={i} className="flex items-start gap-2 text-sm text-[#A1A1AA]">
+                                <span className="text-[#52525B] font-mono text-xs mt-0.5">{i + 1}.</span>
+                                {idea}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -134,7 +161,7 @@ export default function ResearchPage() {
         </div>
       )}
 
-      {results.length === 0 && !loading && (
+      {topics.length === 0 && !mutation.isPending && (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="h-16 w-16 rounded-2xl bg-[#111] border border-[#222] flex items-center justify-center mb-4">
             <Search className="h-7 w-7 text-[#52525B]" />
