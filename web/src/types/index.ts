@@ -1,5 +1,8 @@
 export type PlanTier = "free" | "starter" | "pro" | "agency";
 
+/** Sentinel value stored in profiles.plan when the last payment failed. */
+export type PlanStatus = PlanTier | "payment_failed";
+
 export interface Profile {
   id: string;
   email: string;
