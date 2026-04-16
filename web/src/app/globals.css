@@ -102,6 +102,17 @@
   }
 }
 
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes float-up {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
 @layer utilities {
   .text-gradient-hero {
     background: linear-gradient(135deg, #FF0000 0%, #FF4444 25%, #7C3AED 75%, #A855F7 100%);
@@ -117,5 +128,21 @@
   }
   .surface-grain {
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  }
+  .hero-mesh-bg {
+    background: linear-gradient(
+      135deg,
+      #080808 0%,
+      #0d0506 20%,
+      #08060d 40%,
+      #080808 60%,
+      #0a0508 80%,
+      #080808 100%
+    );
+    background-size: 400% 400%;
+    animation: gradient-shift 12s ease infinite;
+  }
+  .animate-float {
+    animation: float-up 4s ease-in-out infinite;
   }
 }
