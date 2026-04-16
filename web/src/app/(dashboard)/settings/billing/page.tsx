@@ -39,7 +39,9 @@ function formatResetDate(isoString: string | null): string {
   }
 }
 
-export default function BillingPage() {
+import { Suspense } from "react";
+
+function BillingPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -437,5 +439,13 @@ export default function BillingPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function BillingPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-[#888]">Loading billing...</div>}>
+      <BillingPageInner />
+    </Suspense>
   );
 }
