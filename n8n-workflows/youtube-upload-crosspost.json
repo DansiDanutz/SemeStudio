@@ -1,0 +1,288 @@
+{
+  "name": "YouTube Upload & Cross-Post Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "table": "yt_upload_queue",
+        "additionalFields": {
+          "listenForEvents": "INSERT"
+        }
+      },
+      "id": "supabase-trigger",
+      "name": "Supabase Trigger",
+      "type": "n8n-nodes-base.supabaseTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.PIPELINE_API_URL }}/api/process",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "queue_id",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "name": "video_path",
+              "value": "={{ $json.video_path }}"
+            },
+            {
+              "name": "metadata",
+              "value": "={{ JSON.stringify($json.metadata) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "http-pipeline",
+      "name": "Call Upload Pipeline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-complete",
+      "name": "Check Status",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "yt_upload_queue",
+        "tableId": "yt_upload_queue",
+        "filterType": "manual",
+        "filters": {
+          "conditions": [
+            {
+              "key": "id",
+              "value": "={{ $json.queue_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.status }}"
+            },
+            {
+              "fieldId": "youtube_url",
+              "fieldValue": "={{ $json.youtube_url }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "supabase-update-success",
+      "name": "Update Status (Success)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [910, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "yt_upload_queue",
+        "filterType": "manual",
+        "filters": {
+          "conditions": [
+            {
+              "key": "id",
+              "value": "={{ $json.queue_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "failed"
+            },
+            {
+              "fieldId": "error",
+              "fieldValue": "={{ $json.error || 'Pipeline execution failed' }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "supabase-update-error",
+      "name": "Update Status (Error)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [910, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_WEBHOOK_URL || $env.TELEGRAM_BOT_WEBHOOK }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"text\": \"🎬 Video uploaded: {{ $json.youtube_url }}\\n\\nCross-posting results:\\n{{ JSON.stringify($json.crosspost_results, null, 2) }}\"}",
+        "options": {}
+      },
+      "id": "notify-success",
+      "name": "Notify Success",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1130, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_WEBHOOK_URL || $env.TELEGRAM_BOT_WEBHOOK }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"text\": \"❌ Upload failed for {{ $json.video_path }}\\nError: {{ $json.error }}\"}",
+        "options": {}
+      },
+      "id": "notify-error",
+      "name": "Notify Error",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1130, 400]
+    }
+  ],
+  "connections": {
+    "Supabase Trigger": {
+      "main": [
+        [
+          {
+            "node": "Call Upload Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Upload Pipeline": {
+      "main": [
+        [
+          {
+            "node": "Check Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Status": {
+      "main": [
+        [
+          {
+            "node": "Update Status (Success)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Status (Error)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Status (Success)": {
+      "main": [
+        [
+          {
+            "node": "Notify Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Status (Error)": {
+      "main": [
+        [
+          {
+            "node": "Notify Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2026-04-16T00:00:00.000Z",
+      "updatedAt": "2026-04-16T00:00:00.000Z",
+      "id": "1",
+      "name": "youtube"
+    },
+    {
+      "createdAt": "2026-04-16T00:00:00.000Z",
+      "updatedAt": "2026-04-16T00:00:00.000Z",
+      "id": "2",
+      "name": "automation"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-04-16T00:00:00.000Z",
+  "versionId": "1.0"
+}
