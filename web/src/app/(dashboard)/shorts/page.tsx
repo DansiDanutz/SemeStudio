@@ -13,39 +13,45 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Scissors, Plus, Sparkles, Loader2, Play, Clock } from "lucide-react";
+import { Scissors, Plus, Sparkles, Loader2, Clock, ChevronRight, Zap, Target, Lightbulb } from "lucide-react";
+import { useShortsGenerate, type ShortIdea } from "@/hooks/useShortsGenerate";
+import { toast } from "sonner";
 
-interface MockShort {
-  id: string;
-  title: string;
-  sourceVideo: string;
-  duration: string;
-  status: "generated" | "editing" | "published";
-  views: string;
-}
-
-const MOCK_SHORTS: MockShort[] = [
-  { id: "1", title: "Bitcoin ETF in 60 Seconds", sourceVideo: "Bitcoin ETF Explained", duration: "0:58", status: "published", views: "12.4K" },
-  { id: "2", title: "Why DCA Always Wins", sourceVideo: "How to DCA Guide", duration: "0:45", status: "published", views: "8.7K" },
-  { id: "3", title: "Solana Speed Test Results", sourceVideo: "Solana vs Ethereum", duration: "0:52", status: "editing", views: "—" },
-  { id: "4", title: "3 Crypto Tax Mistakes", sourceVideo: "Crypto Tax Guide", duration: "0:40", status: "generated", views: "—" },
-];
-
-const STATUS_BADGE: Record<string, { label: string; className: string }> = {
-  generated: { label: "Ready", className: "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20" },
-  editing: { label: "Editing", className: "bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/20" },
-  published: { label: "Published", className: "bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/20" },
+const STYLE_ICONS: Record<string, React.ReactNode> = {
+  highlights: <Sparkles className="h-3.5 w-3.5" />,
+  hooks: <Zap className="h-3.5 w-3.5" />,
+  tips: <Lightbulb className="h-3.5 w-3.5" />,
 };
 
 export default function ShortsPage() {
-  const [generating, setGenerating] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [sourceTitle, setSourceTitle] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [count, setCount] = useState("3");
+  const [style, setStyle] = useState<"highlights" | "hooks" | "tips">("highlights");
+  const [generatedShorts, setGeneratedShorts] = useState<ShortIdea[]>([]);
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
-  const handleGenerate = async () => {
-    setGenerating(true);
-    await new Promise((r) => setTimeout(r, 3000));
-    setGenerating(false);
-    setShowForm(false);
+  const { mutate: generateShorts, isPending } = useShortsGenerate();
+
+  const handleGenerate = () => {
+    if (!sourceTitle.trim()) {
+      toast.error("Please enter the source video title");
+      return;
+    }
+    generateShorts(
+      { sourceTitle, sourceUrl: sourceUrl || undefined, count: Number(count), style },
+      {
+        onSuccess: (data) => {
+          setGeneratedShorts(data.shorts);
+          setShowForm(false);
+          toast.success(`Generated ${data.shorts.length} Shorts ideas!`);
+        },
+        onError: (err) => {
+          toast.error(err.message ?? "Shorts generation failed");
+        },
+      }
+    );
   };
 
   return (
@@ -53,7 +59,7 @@ export default function ShortsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[#FAFAFA] tracking-tight">Shorts Factory</h1>
-          <p className="text-sm text-[#52525B] mt-1">Auto-generate Shorts from your long-form videos. 6 credits per short.</p>
+          <p className="text-sm text-[#52525B] mt-1">Auto-generate Shorts ideas from your long-form videos. 6 credits per batch.</p>
         </div>
         <Button
           className="bg-[#FF0000] hover:bg-[#CC0000] text-white font-semibold"
@@ -69,30 +75,28 @@ export default function ShortsPage() {
           <CardContent className="p-6 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-sm text-[#A1A1AA]">Source Video</Label>
-                <Select>
-                  <SelectTrigger className="border-[#222] bg-[#0a0a0a] text-[#FAFAFA]">
-                    <SelectValue placeholder="Select a video" />
-                  </SelectTrigger>
-                  <SelectContent className="border-[#222] bg-[#111] text-[#FAFAFA]">
-                    <SelectItem value="1">Bitcoin ETF Explained</SelectItem>
-                    <SelectItem value="2">Top 5 Altcoins 2026</SelectItem>
-                    <SelectItem value="3">How to DCA Guide</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label className="text-sm text-[#A1A1AA]">Source Video Title <span className="text-[#FF0000]">*</span></Label>
+                <Input
+                  placeholder="e.g. Bitcoin ETF Explained"
+                  value={sourceTitle}
+                  onChange={(e) => setSourceTitle(e.target.value)}
+                  className="border-[#222] bg-[#0a0a0a] text-[#FAFAFA] placeholder:text-[#52525B] focus:border-[#FF0000]"
+                />
               </div>
               <div className="space-y-2">
-                <Label className="text-sm text-[#A1A1AA]">Or paste a YouTube URL</Label>
+                <Label className="text-sm text-[#A1A1AA]">YouTube URL (optional)</Label>
                 <Input
                   placeholder="https://youtube.com/watch?v=..."
-                  className="border-[#222] bg-[#0a0a0a] text-[#FAFAFA] placeholder:text-[#52525B]"
+                  value={sourceUrl}
+                  onChange={(e) => setSourceUrl(e.target.value)}
+                  className="border-[#222] bg-[#0a0a0a] text-[#FAFAFA] placeholder:text-[#52525B] focus:border-[#FF0000]"
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-sm text-[#A1A1AA]">Number of Shorts</Label>
-                <Select defaultValue="3">
+                <Select value={count} onValueChange={(v) => setCount(v ?? "3")}>
                   <SelectTrigger className="border-[#222] bg-[#0a0a0a] text-[#FAFAFA]">
                     <SelectValue />
                   </SelectTrigger>
@@ -105,7 +109,7 @@ export default function ShortsPage() {
               </div>
               <div className="space-y-2">
                 <Label className="text-sm text-[#A1A1AA]">Style</Label>
-                <Select defaultValue="highlights">
+                <Select value={style} onValueChange={(v) => setStyle(v as typeof style)}>
                   <SelectTrigger className="border-[#222] bg-[#0a0a0a] text-[#FAFAFA]">
                     <SelectValue />
                   </SelectTrigger>
@@ -119,10 +123,10 @@ export default function ShortsPage() {
             </div>
             <Button
               onClick={handleGenerate}
-              disabled={generating}
+              disabled={isPending}
               className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-semibold h-11"
             >
-              {generating ? (
+              {isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Generating shorts...
@@ -138,41 +142,87 @@ export default function ShortsPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {MOCK_SHORTS.map((short) => {
-          const badge = STATUS_BADGE[short.status];
-          return (
-            <Card key={short.id} className="border-[#222] bg-[#111] overflow-hidden group">
-              <div className="aspect-[9/16] relative bg-gradient-to-b from-[#1a1a1a] to-[#0a0a0a] flex items-center justify-center">
-                <div className="text-center px-4">
-                  <Scissors className="h-8 w-8 text-[#52525B] mx-auto mb-2" />
-                  <p className="text-xs text-[#52525B]">Short Preview</p>
-                </div>
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <Button size="icon" className="h-12 w-12 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30">
-                    <Play className="h-5 w-5 text-white fill-white" />
-                  </Button>
-                </div>
-                <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">
-                  {short.duration}
-                </div>
-              </div>
-              <CardContent className="p-3">
-                <p className="text-sm font-medium text-[#FAFAFA] truncate mb-1">{short.title}</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-[#52525B] flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {short.views !== "—" ? `${short.views} views` : "Not published"}
-                  </span>
-                  <Badge variant="outline" className={`text-[9px] ${badge.className}`}>
-                    {badge.label}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      {generatedShorts.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-[#A1A1AA] uppercase tracking-wider">Generated Ideas</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {generatedShorts.map((short, idx) => (
+              <Card key={idx} className="border-[#222] bg-[#111] overflow-hidden">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-[#FAFAFA] leading-snug">{short.title}</p>
+                    <Badge variant="outline" className="shrink-0 bg-[#7C3AED]/10 text-[#A78BFA] border-[#7C3AED]/20 text-[10px]">
+                      <Clock className="h-3 w-3 mr-1" />
+                      {short.estimatedDuration}
+                    </Badge>
+                  </div>
+
+                  <div className="rounded-md bg-[#0a0a0a] border border-[#1a1a1a] p-3">
+                    <p className="text-xs text-[#71717A] mb-1 font-medium uppercase tracking-wide">Hook</p>
+                    <p className="text-sm text-[#E4E4E7] italic">&ldquo;{short.hook}&rdquo;</p>
+                  </div>
+
+                  <button
+                    onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}
+                    className="flex items-center gap-1.5 text-xs text-[#52525B] hover:text-[#A1A1AA] transition-colors w-full"
+                  >
+                    <ChevronRight className={`h-3.5 w-3.5 transition-transform ${expandedIdx === idx ? "rotate-90" : ""}`} />
+                    {expandedIdx === idx ? "Hide" : "Show"} key points &amp; CTA
+                  </button>
+
+                  {expandedIdx === idx && (
+                    <div className="space-y-2 pt-1">
+                      <div>
+                        <p className="text-xs text-[#71717A] mb-1.5 font-medium uppercase tracking-wide flex items-center gap-1">
+                          <Target className="h-3 w-3" /> Key Points
+                        </p>
+                        <ul className="space-y-1">
+                          {short.keyPoints.map((pt, i) => (
+                            <li key={i} className="flex items-start gap-2 text-xs text-[#A1A1AA]">
+                              <span className="text-[#7C3AED] font-bold mt-0.5">{i + 1}.</span>
+                              {pt}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="rounded-md bg-[#0a0a0a] border border-[#1a1a1a] p-2.5">
+                        <p className="text-xs text-[#71717A] mb-1 font-medium uppercase tracking-wide">Call to Action</p>
+                        <p className="text-xs text-[#E4E4E7]">{short.callToAction}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-1">
+                    <Badge variant="outline" className="bg-[#1a1a1a] text-[#71717A] border-[#222] text-[10px] flex items-center gap-1 w-fit">
+                      {STYLE_ICONS[style]}
+                      {style === "highlights" ? "Key Highlights" : style === "hooks" ? "Hook Moments" : "Quick Tips"}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {generatedShorts.length === 0 && !showForm && (
+        <div className="text-center py-20">
+          <div className="h-16 w-16 rounded-full bg-[#7C3AED]/10 border border-[#7C3AED]/20 flex items-center justify-center mx-auto mb-4">
+            <Scissors className="h-8 w-8 text-[#7C3AED]" />
+          </div>
+          <h3 className="text-lg font-semibold text-[#FAFAFA] mb-2">No Shorts yet</h3>
+          <p className="text-sm text-[#52525B] mb-6 max-w-sm mx-auto">
+            Click &ldquo;New Short&rdquo; to generate Shorts ideas from any long-form video in seconds.
+          </p>
+          <Button
+            className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-semibold"
+            onClick={() => setShowForm(true)}
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            Generate your first Short
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
