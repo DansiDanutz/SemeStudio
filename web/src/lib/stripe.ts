@@ -68,6 +68,33 @@ export const CREDIT_PACKS = [
   { credits: 500, price: 29, priceId: process.env.STRIPE_PACK_500_PRICE_ID },
 ] as const;
 
+export type CheckoutProduct =
+  | { type: "subscription"; priceId: string; tier: "starter" | "pro" | "agency" }
+  | { type: "credits"; priceId: string; credits: number };
+
+/** Resolve a client-selected price through the server-owned billing catalog. */
+export function resolveCheckoutProduct(
+  priceId: string,
+  type: "subscription" | "credits"
+): CheckoutProduct | null {
+  if (type === "subscription") {
+    for (const tier of ["starter", "pro", "agency"] as const) {
+      const configuredPriceId = PLANS[tier].priceId;
+      if (configuredPriceId && configuredPriceId === priceId) {
+        return { type, priceId: configuredPriceId, tier };
+      }
+    }
+    return null;
+  }
+
+  const pack = CREDIT_PACKS.find(
+    (candidate) => candidate.priceId && candidate.priceId === priceId
+  );
+  return pack?.priceId
+    ? { type, priceId: pack.priceId, credits: pack.credits }
+    : null;
+}
+
 export const CREDIT_COSTS = {
   ai_script: 5,
   ai_thumbnail: 3,
