@@ -2,11 +2,14 @@
   "name": "web",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.32.1",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "lint:billing": "eslint src/lib/stripe.ts src/app/api/stripe/create-checkout/route.ts 'src/app/(dashboard)/settings/billing/page.tsx' tools/stripe-catalog.test.cjs",
+    "test:catalog": "tsc src/lib/stripe.ts --outDir .test-dist --module commonjs --target ES2022 --esModuleInterop --skipLibCheck && node --test tools/stripe-catalog.test.cjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.0",

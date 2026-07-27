@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
+import { resolveCheckoutProduct } from "@/lib/stripe";
 
 function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -11,9 +12,6 @@ function getStripe() {
 interface CheckoutRequestBody {
   priceId: string;
   type: "subscription" | "credits";
-  credits?: number;
-  successUrl?: string;
-  cancelUrl?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -31,21 +29,26 @@ export async function POST(req: NextRequest) {
 
     const stripe = getStripe();
     const body = (await req.json()) as CheckoutRequestBody;
-    const { priceId, type, credits } = body;
+    const { priceId, type } = body;
 
-    if (!priceId) {
-      return NextResponse.json({ error: "Missing required field: priceId" }, { status: 400 });
-    }
-    if (type === "credits" && (!credits || credits <= 0)) {
+    if (!priceId || (type !== "subscription" && type !== "credits")) {
       return NextResponse.json(
-        { error: "credits must be a positive integer for credit pack purchases" },
+        { error: "A valid priceId and checkout type are required" },
+        { status: 400 }
+      );
+    }
+
+    const product = resolveCheckoutProduct(priceId, type);
+    if (!product) {
+      return NextResponse.json(
+        { error: "The selected billing product is not available" },
         { status: 400 }
       );
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-    const successUrl = body.successUrl ?? `${appUrl}/settings/billing?success=true`;
-    const cancelUrl = body.cancelUrl ?? `${appUrl}/settings/billing?canceled=true`;
+    const successUrl = `${appUrl}/settings/billing?success=true`;
+    const cancelUrl = `${appUrl}/settings/billing?canceled=true`;
 
     // Retrieve the Stripe customer ID from the profile, if it exists
     const { data: profile } = await supabase
@@ -55,10 +58,10 @@ export async function POST(req: NextRequest) {
       .single();
 
     const sessionParams: Stripe.Checkout.SessionCreateParams =
-      type === "subscription"
+      product.type === "subscription"
         ? {
             mode: "subscription",
-            line_items: [{ price: priceId, quantity: 1 }],
+            line_items: [{ price: product.priceId, quantity: 1 }],
             // client_reference_id lets the webhook resolve the user without relying on metadata
             client_reference_id: user.id,
             customer: profile?.stripe_customer_id ?? undefined,
@@ -72,7 +75,7 @@ export async function POST(req: NextRequest) {
           }
         : {
             mode: "payment",
-            line_items: [{ price: priceId, quantity: 1 }],
+            line_items: [{ price: product.priceId, quantity: 1 }],
             client_reference_id: user.id,
             customer: profile?.stripe_customer_id ?? undefined,
             customer_email: profile?.stripe_customer_id ? undefined : (user.email ?? undefined),
@@ -81,7 +84,8 @@ export async function POST(req: NextRequest) {
             metadata: {
               type: "credits",
               user_id: user.id,
-              credits: String(credits),
+              credits: String(product.credits),
+              price_id: product.priceId,
             },
           };
 
