@@ -72,6 +72,66 @@ export type CheckoutProduct =
   | { type: "subscription"; priceId: string; tier: "starter" | "pro" | "agency" }
   | { type: "credits"; priceId: string; credits: number };
 
+export const CHECKOUT_SESSION_TTL_SECONDS = 35 * 60;
+
+/** Keep incomplete sessions short-lived while leaving headroom above Stripe's minimum. */
+export function checkoutExpiresAt(nowSeconds = Math.floor(Date.now() / 1000)) {
+  return nowSeconds + CHECKOUT_SESSION_TTL_SECONDS;
+}
+
+interface CheckoutSessionInput {
+  product: CheckoutProduct;
+  userId: string;
+  email?: string;
+  customerId?: string;
+  successUrl: string;
+  cancelUrl: string;
+  expiresAt?: number;
+}
+
+type CheckoutSessionCreateParams = Parameters<
+  ReturnType<typeof getStripe>["checkout"]["sessions"]["create"]
+>[0];
+
+/** Build the complete provider request from server-owned identity and catalog data. */
+export function buildCheckoutSessionParams({
+  product,
+  userId,
+  email,
+  customerId,
+  successUrl,
+  cancelUrl,
+  expiresAt = checkoutExpiresAt(),
+}: CheckoutSessionInput): CheckoutSessionCreateParams {
+  const common = {
+    line_items: [{ price: product.priceId, quantity: 1 }],
+    client_reference_id: userId,
+    customer: customerId,
+    customer_email: customerId ? undefined : email,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    expires_at: expiresAt,
+  };
+
+  return product.type === "subscription"
+    ? {
+        ...common,
+        mode: "subscription",
+        allow_promotion_codes: true,
+        subscription_data: { metadata: { user_id: userId } },
+      }
+    : {
+        ...common,
+        mode: "payment",
+        metadata: {
+          type: "credits",
+          user_id: userId,
+          credits: String(product.credits),
+          price_id: product.priceId,
+        },
+      };
+}
+
 /** Resolve a client-selected price through the server-owned billing catalog. */
 export function resolveCheckoutProduct(
   priceId: string,

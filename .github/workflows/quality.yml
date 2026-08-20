@@ -9,6 +9,22 @@ permissions:
   contents: read
 
 jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+      - name: Install the exact Python dependency graph
+        run: |
+          uv python install 3.13
+          uv venv --python 3.13
+          uv pip sync requirements.lock
+      - name: Reject known Python dependency vulnerabilities
+        run: uvx --python 3.13 pip-audit@2.10.1 --no-deps -r requirements.lock
+      - name: Run Python behavior regressions
+        run: .venv/bin/pytest -q
+
   web:
     runs-on: ubuntu-latest
     defaults:
@@ -25,6 +41,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+      - run: pnpm audit
       - run: pnpm test:catalog
       - run: pnpm lint:billing
       - run: pnpm exec tsc --noEmit
