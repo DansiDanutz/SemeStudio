@@ -72,9 +72,9 @@ export type CheckoutProduct =
   | { type: "subscription"; priceId: string; tier: "starter" | "pro" | "agency" }
   | { type: "credits"; priceId: string; credits: number };
 
-export const CHECKOUT_SESSION_TTL_SECONDS = 30 * 60;
+export const CHECKOUT_SESSION_TTL_SECONDS = 35 * 60;
 
-/** Keep incomplete Checkout sessions at Stripe's documented minimum lifetime. */
+/** Keep incomplete sessions short-lived while leaving headroom above Stripe's minimum. */
 export function checkoutExpiresAt(nowSeconds = Math.floor(Date.now() / 1000)) {
   return nowSeconds + CHECKOUT_SESSION_TTL_SECONDS;
 }

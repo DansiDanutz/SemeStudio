@@ -15,9 +15,9 @@ const {
   resolveCheckoutProduct,
 } = require("../.test-dist/stripe.js");
 
-test("expires incomplete checkout sessions after thirty minutes", () => {
-  assert.equal(CHECKOUT_SESSION_TTL_SECONDS, 1800);
-  assert.equal(checkoutExpiresAt(1_700_000_000), 1_700_001_800);
+test("expires incomplete checkout sessions after thirty-five minutes", () => {
+  assert.equal(CHECKOUT_SESSION_TTL_SECONDS, 2100);
+  assert.equal(checkoutExpiresAt(1_700_000_000), 1_700_002_100);
 });
 
 test("derives credit quantity from the configured server pack", () => {
