@@ -77,7 +77,7 @@ function BillingPageInner() {
   }, [router]);
 
   useEffect(() => {
-    void loadData();
+    queueMicrotask(() => void loadData());
   }, [loadData]);
 
   // ── Handle ?success=true query param ───────────────────────────────────
@@ -87,7 +87,7 @@ function BillingPageInner() {
       // Clean the query param without a full page reload
       router.replace("/settings/billing");
       // Re-fetch to get fresh plan data
-      void loadData();
+      queueMicrotask(() => void loadData());
     }
     if (searchParams.get("canceled") === "true") {
       toast.info("Checkout was cancelled. No charges were made.");
@@ -106,7 +106,7 @@ function BillingPageInner() {
       });
       const data = (await res.json()) as { url?: string; error?: string };
       if (!res.ok || !data.url) throw new Error(data.error ?? "Checkout failed");
-      window.location.href = data.url;
+      window.location.assign(data.url);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : `Failed to upgrade to ${planName}`);
     } finally {
@@ -128,7 +128,7 @@ function BillingPageInner() {
       });
       const data = (await res.json()) as { url?: string; error?: string };
       if (!res.ok || !data.url) throw new Error(data.error ?? "Checkout failed");
-      window.location.href = data.url;
+      window.location.assign(data.url);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : `Failed to purchase ${credits} credits for $${price}`);
     } finally {
@@ -142,7 +142,7 @@ function BillingPageInner() {
       const res = await fetch("/api/stripe/create-portal", { method: "POST" });
       const data = (await res.json()) as { url?: string; error?: string };
       if (!res.ok || !data.url) throw new Error(data.error ?? "Portal failed");
-      window.location.href = data.url;
+      window.location.assign(data.url);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to open billing portal");
     } finally {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
-import { resolveCheckoutProduct } from "@/lib/stripe";
+import { checkoutExpiresAt, resolveCheckoutProduct } from "@/lib/stripe";
 
 function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
             customer_email: profile?.stripe_customer_id ? undefined : (user.email ?? undefined),
             success_url: successUrl,
             cancel_url: cancelUrl,
+            expires_at: checkoutExpiresAt(),
             allow_promotion_codes: true,
             subscription_data: {
               metadata: { user_id: user.id },
@@ -81,6 +82,7 @@ export async function POST(req: NextRequest) {
             customer_email: profile?.stripe_customer_id ? undefined : (user.email ?? undefined),
             success_url: successUrl,
             cancel_url: cancelUrl,
+            expires_at: checkoutExpiresAt(),
             metadata: {
               type: "credits",
               user_id: user.id,

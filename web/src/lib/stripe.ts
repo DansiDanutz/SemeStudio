@@ -72,6 +72,13 @@ export type CheckoutProduct =
   | { type: "subscription"; priceId: string; tier: "starter" | "pro" | "agency" }
   | { type: "credits"; priceId: string; credits: number };
 
+export const CHECKOUT_SESSION_TTL_SECONDS = 30 * 60;
+
+/** Keep incomplete Checkout sessions at Stripe's documented minimum lifetime. */
+export function checkoutExpiresAt(nowSeconds = Math.floor(Date.now() / 1000)) {
+  return nowSeconds + CHECKOUT_SESSION_TTL_SECONDS;
+}
+
 /** Resolve a client-selected price through the server-owned billing catalog. */
 export function resolveCheckoutProduct(
   priceId: string,

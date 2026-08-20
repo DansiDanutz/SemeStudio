@@ -159,6 +159,6 @@ pytest tests/ -v
 - **google-api-python-client**: YouTube Data API v3
 - **supabase**: Supabase Python client
 - **httpx**: Async HTTP client for API calls
-- **moviepy** / **ffmpeg**: Video clipping for TikTok/Instagram
+- Video clipping for TikTok/Instagram remains a planned, separately packaged capability; the current runtime does not import a media-processing stack.
 - **pydantic**: Configuration validation
 - **fastapi**: API server for n8n integration
