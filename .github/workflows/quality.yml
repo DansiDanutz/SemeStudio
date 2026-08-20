@@ -21,7 +21,7 @@ jobs:
           uv venv --python 3.13
           uv pip sync requirements.lock
       - name: Reject known Python dependency vulnerabilities
-        run: uvx --python 3.13 pip-audit --no-deps -r requirements.lock
+        run: uvx --python 3.13 pip-audit@2.10.1 --no-deps -r requirements.lock
       - name: Run Python behavior regressions
         run: .venv/bin/pytest -q
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
-import { checkoutExpiresAt, resolveCheckoutProduct } from "@/lib/stripe";
+import { buildCheckoutSessionParams, resolveCheckoutProduct } from "@/lib/stripe";
 
 function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -57,39 +57,14 @@ export async function POST(req: NextRequest) {
       .eq("id", user.id)
       .single();
 
-    const sessionParams: Stripe.Checkout.SessionCreateParams =
-      product.type === "subscription"
-        ? {
-            mode: "subscription",
-            line_items: [{ price: product.priceId, quantity: 1 }],
-            // client_reference_id lets the webhook resolve the user without relying on metadata
-            client_reference_id: user.id,
-            customer: profile?.stripe_customer_id ?? undefined,
-            customer_email: profile?.stripe_customer_id ? undefined : (user.email ?? undefined),
-            success_url: successUrl,
-            cancel_url: cancelUrl,
-            expires_at: checkoutExpiresAt(),
-            allow_promotion_codes: true,
-            subscription_data: {
-              metadata: { user_id: user.id },
-            },
-          }
-        : {
-            mode: "payment",
-            line_items: [{ price: product.priceId, quantity: 1 }],
-            client_reference_id: user.id,
-            customer: profile?.stripe_customer_id ?? undefined,
-            customer_email: profile?.stripe_customer_id ? undefined : (user.email ?? undefined),
-            success_url: successUrl,
-            cancel_url: cancelUrl,
-            expires_at: checkoutExpiresAt(),
-            metadata: {
-              type: "credits",
-              user_id: user.id,
-              credits: String(product.credits),
-              price_id: product.priceId,
-            },
-          };
+    const sessionParams = buildCheckoutSessionParams({
+      product,
+      userId: user.id,
+      email: user.email ?? undefined,
+      customerId: profile?.stripe_customer_id ?? undefined,
+      successUrl,
+      cancelUrl,
+    });
 
     const session = await stripe.checkout.sessions.create(sessionParams);
 
